@@ -205,6 +205,9 @@ def play_game(res, req):
         res['response']['text'] = HELP_TEXT
         return
 
+    elif get_city(req) == 5:
+        return
+
     # Если попытка - первая, то случайным образом выбираем город для угадывания:
     if attempt == 1:
         city = random.choice(list(cities))
@@ -232,6 +235,13 @@ def play_game(res, req):
         # и отправляем пользователя на второй круг:
         if get_city(req) == city:
             res['response']['text'] = 'Правильно! Сыграем ещё?'
+            res['response']['buttons'] = [
+                {
+                    'title': 'Показать город',
+                    'url': f'https://yandex.ru/maps/?mode=search&text={city}',
+                    'hide': True
+                }
+            ]
             sessionStorage[user_id]['guessed_cities'].append(city)
             sessionStorage[user_id]['game_started'] = False
             return
@@ -264,6 +274,9 @@ def get_city(req):
 
     if req['request']['command'].lower() == 'помощь':
         return 8
+
+    if req['request']['command'].lower() == 'показать город':
+        return 5
 
     for entity in req['request']['nlu']['entities']:
 
