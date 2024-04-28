@@ -4,6 +4,11 @@ import random
 import json
 
 
+HELP_TEXT = ('Краткая справка об игре: в данной игре вам необходимо угадать 3 города по'
+             ' карточкам с их изображениями. Покажите нам мастер-класс и отгадайте каждый'
+             ' из показанных нами городов!')
+
+
 # Инициализация приложения и логирования:
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -49,8 +54,15 @@ def main():
 def handle_dialog(res, req):
     # ID пользователя, приветственное сообщение
     user_id = req['session']['user_id']
+
     if req['session']['new']:
         res['response']['text'] = 'Добро пожаловать в игру! Как вас зовут?'
+        res['response']['buttons'] = [
+            {
+                'title': 'Помощь',
+                'hide': True
+            }
+        ]
         sessionStorage[user_id] = {
             'first_name': None,  # Имя пользователя
             'game_started': False  # Начал ли пользователь игру
@@ -61,10 +73,25 @@ def handle_dialog(res, req):
     if sessionStorage[user_id]['first_name'] is None:
         first_name = get_first_name(req)
 
-        if first_name is None:
-            res['response']['text'] = 'Вы не назвали своё имя! Пожалуйста, скажите, как вас зовут?'
-        else:
+        if 'помощь' in req['request']['nlu']['tokens']:
+            res['response']['text'] = HELP_TEXT
 
+            res['response']['buttons'] = [
+                {
+                    'title': 'Помощь',
+                    'hide': True
+                }
+            ]
+
+        elif first_name is None:
+            res['response']['text'] = 'Вы не назвали своё имя! Пожалуйста, скажите, как вас зовут?'
+            res['response']['buttons'] = [
+                {
+                    'title': 'Помощь',
+                    'hide': True
+                }
+            ]
+        else:
             sessionStorage[user_id]['first_name'] = first_name
             # Создание массива, в котором будут храниться угаданные города:
             sessionStorage[user_id]['guessed_cities'] = []
@@ -79,6 +106,10 @@ def handle_dialog(res, req):
                 {
                     'title': 'Нет',
                     'hide': True
+                },
+                {
+                    'title': 'Помощь',
+                    'hide': True
                 }
             ]
     else:
@@ -87,8 +118,24 @@ def handle_dialog(res, req):
         # от того, начал пользователь игру или нет:
         if not sessionStorage[user_id]['game_started']:
 
+            if 'помощь' in req['request']['nlu']['tokens']:
+                res['response']['text'] = HELP_TEXT
+
+                res['response']['buttons'] = [
+                    {
+                        'title': 'Помощь',
+                        'hide': True
+                    }
+                ]
+
             # Если игра не начата, то ожидаем ответ на предложение сыграть:
-            if 'да' in req['request']['nlu']['tokens']:
+            elif 'да' in req['request']['nlu']['tokens']:
+                res['response']['buttons'] = [
+                    {
+                        'title': 'Помощь',
+                        'hide': True
+                    }
+                ]
 
                 # Если пользователь согласился, то проверяем, не отгадал ли он уже все города...
                 # По схеме можно увидеть, что здесь окажутся и пользователи, которые уже отгадывали города:
@@ -110,6 +157,12 @@ def handle_dialog(res, req):
 
             # Обрабатываем ответы "НЕТ" и неправильные ответы, которые Алиса не может обработать:
             elif 'нет' in req['request']['nlu']['tokens']:
+                res['response']['buttons'] = [
+                    {
+                        'title': 'Помощь',
+                        'hide': True
+                    }
+                ]
                 res['response']['text'] = 'Если передумаете - я буду рядом!'
                 res['end_session'] = True
 
@@ -122,6 +175,10 @@ def handle_dialog(res, req):
                     },
                     {
                         'title': 'Нет',
+                        'hide': True
+                    },
+                    {
+                        'title': 'Помощь',
                         'hide': True
                     }
                 ]
@@ -136,6 +193,17 @@ def play_game(res, req):
     # Получаем USERID, количество попыток ATTEMPT:
     user_id = req['session']['user_id']
     attempt = sessionStorage[user_id]['attempt']
+
+    res['response']['buttons'] = [
+        {
+            'title': 'Помощь',
+            'hide': True
+        }
+    ]
+
+    if get_city(req) == 8:
+        res['response']['text'] = HELP_TEXT
+        return
 
     # Если попытка - первая, то случайным образом выбираем город для угадывания:
     if attempt == 1:
@@ -193,6 +261,10 @@ def play_game(res, req):
 # Получаем город:
 def get_city(req):
     # Перебираем именованные сущности:
+
+    if req['request']['command'].lower() == 'помощь':
+        return 8
+
     for entity in req['request']['nlu']['entities']:
 
         # Если тип сущности - YANDEX.GEO, то пытаемся получить город(city), а если нет, то возвращаем None:
